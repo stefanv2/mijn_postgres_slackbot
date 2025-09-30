@@ -1,0 +1,57 @@
+---
+
+- name: Installeer PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+    state: present
+    update_cache: yes
+  tags: [postgres, database]
+
+- name: Start PostgreSQL handmatig (Docker workaround)
+  shell: "pg_ctlcluster 12 main start"
+  become: true
+  args:
+    executable: /bin/bash
+  register: pgstart
+  failed_when: >
+    pgstart.rc != 0 and
+    ('already running' not in pgstart.stdout | lower)
+
+- name: Maak testdatabase aan
+  shell: |
+    sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='demo_db'" \
+      || sudo -u postgres psql -c "CREATE DATABASE demo_db;"
+  become: false
+  args:
+    executable: /bin/bash
+
+- name: Controleer of PostgreSQL-gebruiker appuser bestaat
+  shell: sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='appuser'"
+  register: appuser_exists
+  changed_when: false
+  failed_when: false
+
+- name: Voeg PostgreSQL gebruiker toe (alleen als nodig)
+  shell: sudo -u postgres psql -c "CREATE USER appuser WITH PASSWORD 'securepass';"
+  when: appuser_exists.stdout != "1"
+  become: true
+  args:
+    executable: /bin/bash
+
+- name: Sta externe verbindingen toe in postgresql.conf
+  lineinfile:
+    path: /etc/postgresql/12/main/postgresql.conf
+    regexp: '^#?listen_addresses'
+    line: "listen_addresses = '*'"
+  notify: Restart PostgreSQL
+
+- name: Voeg regel toe aan pg_hba.conf voor externe toegang
+  lineinfile:
+    path: /etc/postgresql/12/main/pg_hba.conf
+    line: "host    all             all             0.0.0.0/0               md5"
+    state: present
+  notify: Restart PostgreSQL
+
+# tasks file for roles/postgres

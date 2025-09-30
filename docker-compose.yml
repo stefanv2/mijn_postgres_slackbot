@@ -1,0 +1,23 @@
+# postgres-container/docker-compose.yml
+
+services:
+  db:
+    build: .
+    container_name: pg-container
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ:-Europe/Amsterdam}
+    ports:
+      - "${HOST_PORT:-4321}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # seed-scripts die 1x draaien bij een *nieuwe* datadir:
+      - ./seed:/docker-entrypoint-initdb.d:ro
+      # jouw CSV beschikbaar maken binnen de container:
+      - ./data:/import:ro
+    restart: unless-stopped
+
+volumes:
+  pg_data:

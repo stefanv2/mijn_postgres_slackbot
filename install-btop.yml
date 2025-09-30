@@ -1,0 +1,8 @@
+---
+- name: Installeer btop op Linux hosts
+  hosts: all
+  become: true
+
+  roles:
+    - btop
+

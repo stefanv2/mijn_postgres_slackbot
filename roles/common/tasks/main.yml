@@ -1,0 +1,151 @@
+---
+- name: Zorg dat python3-apt geïnstalleerd is
+  apt:
+    name: python3-apt
+    state: present
+    update_cache: yes
+
+- name: Installeer standaardtools
+  apt:
+    name:
+      - zip
+      - unzip
+      - vim
+      - curl
+      - htop
+      - iputils-ping
+      - net-tools
+    state: present
+    update_cache: yes
+
+- name: Plaats testbestand
+  copy:
+    dest: /tmp/ansible_works.txt
+    content: |
+      Deze container is geconfigureerd door Ansible.
+      Tijd: {{ ansible_date_time.iso8601 }}
+  tags: [common]
+
+- name: Zorg dat software-properties-common geïnstalleerd is
+  apt:
+    name: software-properties-common
+    state: present
+    update_cache: yes
+
+# Vereiste buildtools (alleen 'make' is echt nodig, maar build-essential kan geen kwaad)
+- name: Installeer buildtools voor btop-installatie
+  apt:
+    name:
+      - make            # minimaal nodig
+      - build-essential # bevat gcc/g++, handig voor andere tools
+    state: present
+    update_cache: yes
+
+# Zorg dat tar aanwezig is
+- name: Install base tools for btop
+  apt:
+    name:
+      - wget
+      - tar
+    state: present
+    update_cache: yes
+
+# Download statisch gelinkt btop-archief
+- name: Download btop (statisch, amd64)
+  get_url:
+    url: https://github.com/aristocratos/btop/releases/latest/download/btop-x86_64-linux-musl.tbz
+    dest: /tmp/btop.tbz
+    mode: "0644"
+
+# Pak uit en installeer
+- name: Extract and install btop
+  shell: |
+    cd /tmp &&
+    tar -xjf /tmp/btop.tbz &&
+    cd btop && ./install.sh
+  args:
+    executable: /bin/bash
+  become: true
+  register: btop_install
+
+# Verifieer installatie
+- name: Verify btop version
+  command: btop --version
+  changed_when: false
+  when: btop_install is changed
+
+- name: Installeer locale-pakket en stel UTF-8 in
+  become: true
+  apt:
+    name: locales
+    state: present
+    update_cache: yes
+
+- name: Genereer en stel locale in
+  become: true
+  shell: |
+    locale-gen en_US.UTF-8
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+  args:
+    executable: /bin/bash
+
+# Zet locale voor gebruiker ansible
+- name: Voeg locale-instellingen toe aan .bash_profile voor ansible
+  become: true
+  lineinfile:
+    path: /home/ansible/.bash_profile
+    create: yes
+    state: present
+    line: "{{ item }}"
+  loop:
+    - 'export LANG=en_US.UTF-8'
+    - 'export LC_ALL=en_US.UTF-8'
+
+- name: Zet juiste permissies op .bash_profile van ansible
+  become: true
+  file:
+    path: /home/ansible/.bash_profile
+    owner: ansible
+    group: ansible
+    mode: '0644'
+
+# Zet locale voor root
+- name: Voeg locale-instellingen toe aan root .bashrc
+  become: true
+  lineinfile:
+    path: /root/.bashrc
+    create: yes
+    state: present
+    line: "{{ item }}"
+  loop:
+    - 'export LANG=en_US.UTF-8'
+    - 'export LC_ALL=en_US.UTF-8'
+
+# Zet systeembrede locale
+- name: Voeg systeem-brede locale toe aan /etc/environment
+  become: true
+  lineinfile:
+    path: /etc/environment
+    create: yes
+    state: present
+    line: "{{ item }}"
+  loop:
+    - 'LANG="en_US.UTF-8"'
+    - 'LC_ALL="en_US.UTF-8"'
+
+
+- name: Controleer of locale correct is ingesteld
+  shell: locale | grep LANG
+  register: locale_check
+  changed_when: false
+  tags: debug
+
+- name: Installeer make
+  apt:
+    name: make
+    state: present
+  tags: [common, build]
+
+- debug:
+    msg: "Locale ingesteld op: {{ locale_check.stdout }}"
+

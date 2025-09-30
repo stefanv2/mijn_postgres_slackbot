@@ -1,0 +1,14 @@
+---
+# tasks file for roles/postgres_container
+- name: Start PostgreSQL container
+  docker_container:
+    name: postgres15
+    image: postgres:15
+    state: started
+    restart_policy: always
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - /opt/postgres:/var/lib/postgresql/data

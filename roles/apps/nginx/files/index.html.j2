@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Welkom op {{ inventory_hostname }}</title>
+</head>
+<body>
+  <h1>Deze pagina is uitgerold door Ansible 🚀</h1>
+  <p>Container: {{ inventory_hostname }}<br>
+     Tijd: {{ ansible_date_time.iso8601 }}
+  </p>
+</body>
+</html>
+

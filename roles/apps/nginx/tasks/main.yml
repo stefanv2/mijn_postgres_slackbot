@@ -1,0 +1,22 @@
+---
+- name: Installeer NGINX
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+  tags: [nginx, web]
+
+- name: Start nginx met fallback naar command
+  shell: nginx || service nginx start
+  ignore_errors: true
+
+- name: Plaats dynamische index.html via template
+  template:
+    src: index.html.j2
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: 0644
+  notify: Restart nginx
+
+# tasks file for roles/nginx

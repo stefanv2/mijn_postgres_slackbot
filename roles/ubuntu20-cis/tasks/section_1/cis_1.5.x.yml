@@ -1,0 +1,143 @@
+---
+
+- name: "1.5.1 | PATCH | Ensure prelink is not installed"
+  block:
+      - name: "1.5.1 | PATCH | Ensure prelink is not installed | Restore binaries to normal"
+        ansible.builtin.shell: prelink -ua
+        changed_when: false
+        failed_when: false
+
+      - name: "1.5.1 | PATCH | Ensure prelink is not installed| Remove prelink package"
+        ansible.builtin.package:
+            name: prelink
+            state: absent
+  when:
+      - ubtu20cis_rule_1_5_1
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.5.1
+      - prelink
+
+- name: "1.5.2 | PATCH | Ensure address space layout randomization (ASLR) is enabled | Set active kernel parameter"
+  ansible.posix.sysctl:
+      name: kernel.randomize_va_space
+      value: '2'
+  when:
+      - ubtu20cis_rule_1_5_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.5.2
+      - aslr
+
+- name: "1.5.3 | PATCH | Ensure ptrace_scope is restricted | sysctl.conf"
+  ansible.builtin.lineinfile:
+      path: /etc/sysctl.d/60-kernel_sysctl.conf
+      regexp: '^kernel.yama.ptrace_scope '
+      line: kernel.yama.ptrace_scope=1
+      create: true
+      owner: root
+      group: root
+      mode: '0644'
+  when:
+      - ubtu20cis_rule_1_5_3
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.5.3
+
+- name: "1.5.4 | PATCH | Ensure Automatic Error Reporting is not enabled"
+  block:
+      - name: "1.5.4 | PATCH | Ensure Automatic Error Reporting is not enabled | disable"
+        ansible.builtin.lineinfile:
+            path: /etc/default/apport
+            regexp: ^enabled
+            line: enabled=0
+            create: true
+            owner: root
+            group: root
+            mode: 0644
+
+      - name: "1.5.4 | PATCH | Ensure Automatic Error Reporting is not enabled | stop service"
+        ansible.builtin.systemd:
+            name: apport
+            state: stopped
+            enabled: false
+        when:
+            - "'apport' in ansible_facts.packages"
+
+      - name: "1.5.4 | PATCH | Ensure Automatic Error Reporting is not enabled | remove package"
+        ansible.builtin.package:
+            name: apport
+            state: absent
+        when:
+            - "'apport' in ansible_facts.packages"
+  when:
+      - ubtu20cis_rule_1_5_4
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.5.4
+      - apport
+
+- name: "1.5.5 | PATCH | Ensure core dumps are restricted"
+  block:
+      - name: "1.5.5 | PATCH | Ensure core dumps are restricted | kernel sysctl"
+        ansible.posix.sysctl:
+            name: fs.suid_dumpable
+            value: '0'
+            state: present
+            reload: true
+            sysctl_set: true
+            ignoreerrors: true
+
+      - name: "1.5.5 | PATCH | Ensure core dumps are restricted | security limits"
+        ansible.builtin.lineinfile:
+            path: /etc/security/limits.d/99_zero_core.conf
+            regexp: '^\* hard core'
+            line: '* hard core 0'
+            create: true
+            owner: root
+            group: root
+            mode: '0644'
+
+      - name: "1.5.5 | PATCH | Ensure core dumps are restricted | sysctl.conf"
+        ansible.builtin.lineinfile:
+            path: /etc/sysctl.conf
+            regexp: '^fs.suid_dumpable'
+            line: fs.suid_dumpable=0
+            owner: root
+            group: root
+            mode: '0644'
+
+      - name: "1.5.5 | PATCH | Ensure core dumps are restricted | coredump.conf"
+        ansible.builtin.lineinfile:
+            path: /etc/systemd/coredump.conf
+            regexp: "{{ item.regexp }}"
+            line: "{{ item.line }}"
+            create: true
+            owner: root
+            group: root
+            mode: '0644'
+        loop:
+            - { regexp: '^Storage', line: 'Storage=none' }
+            - { regexp: '^ProcessSizeMax', line: 'ProcessSizeMax=0' }
+        when: "'systemd-coredump' in ansible_facts.packages"
+  when:
+      - ubtu20cis_rule_1_5_5
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.5.5
+      - coredump

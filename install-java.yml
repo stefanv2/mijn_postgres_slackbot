@@ -1,0 +1,8 @@
+---
+- name: Installeer Java voor AutoUpgrade
+  hosts: all
+  become: true
+
+  roles:
+    - java
+

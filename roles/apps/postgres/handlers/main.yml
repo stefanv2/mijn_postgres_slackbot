@@ -1,0 +1,7 @@
+---
+
+- name: Restart PostgreSQL
+  become: true
+  command: pg_ctlcluster 12 main restart
+
+# handlers file for roles/postgres

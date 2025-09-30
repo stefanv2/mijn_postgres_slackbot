@@ -1,0 +1,18 @@
+---
+- name: Installeer OpenJDK 17 voor gebruik met AutoUpgrade
+  apt:
+    name: openjdk-17-jdk
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Controleer Java-versie
+  command: java -version
+  register: java_version
+  changed_when: false
+  ignore_errors: true
+
+- name: Toon Java-versie
+  debug:
+    var: java_version.stdout_lines
+

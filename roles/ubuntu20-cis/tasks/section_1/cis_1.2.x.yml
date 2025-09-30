@@ -1,0 +1,57 @@
+---
+
+- name: "1.2.1 | PATCH | Ensure AIDE is installed"
+  block:
+      - name: "1.2.1 | PATCH | Ensure AIDE is installed"
+        ansible.builtin.package:
+            name: ['aide', 'aide-common']
+            state: present
+            update_cache: true
+
+      - name: "1.2.1 | PATCH | Ensure AIDE is installed | Recapture packages"
+        ansible.builtin.package_facts:
+            manager: auto
+
+      - name: "1.2.1 | PATCH | Ensure AIDE is installed | Configure AIDE"
+        ansible.builtin.shell: aide init && mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+        args:
+            creates: /var/lib/aide/aide.db
+        changed_when: false
+        failed_when: false
+        async: 45
+        poll: 0
+        when: not ansible_check_mode
+  when:
+      - ubtu20cis_rule_1_2_1
+      - ubtu20cis_config_aide
+      - "'aide' not in ansible_facts.packages or
+        'aide-common' not in ansible_facts.packages"
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.2.1
+      - aide
+
+- name: "1.2.2 | PATCH | Ensure filesystem integrity is regularly checked"
+  ansible.builtin.cron:
+      name: Run AIDE integrity check
+      cron_file: "{{ ubtu20cis_aide_cron['cron_file'] }}"
+      user: "{{ ubtu20cis_aide_cron['cron_user'] }}"
+      minute: "{{ ubtu20cis_aide_cron['aide_minute'] | default('0') }}"
+      hour: "{{ ubtu20cis_aide_cron['aide_hour'] | default('5') }}"
+      day: "{{ ubtu20cis_aide_cron['aide_day'] | default('*') }}"
+      month: "{{ ubtu20cis_aide_cron['aide_month'] | default('*') }}"
+      weekday: "{{ ubtu20cis_aide_cron['aide_weekday'] | default('*') }}"
+      job: "{{ ubtu20cis_aide_cron['aide_job'] }}"
+  when:
+      - ubtu20cis_config_aide
+      - ubtu20cis_rule_1_2_2
+  tags:
+      - level1-server
+      - level1-workstation
+      - automated
+      - patch
+      - rule_1.2.2
+      - cron

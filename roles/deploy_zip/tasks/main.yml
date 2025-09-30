@@ -1,0 +1,27 @@
+---
+- name: Verwijder bestaande doelmap als die bestaat
+  file:
+    path: /opt/demo
+    state: absent
+
+- name: Kopieer zip-bestand naar remote server
+  copy:
+    src: demo.zip
+    dest: /tmp/demo.zip
+    mode: '0644'
+  tags: [files, zip]
+
+- name: Maak doelmap opnieuw aan
+  file:
+    path: /opt/demo
+    state: directory
+    mode: '0755'
+  tags: [files, zip]
+
+- name: Pak zip-bestand uit naar doelmap
+  unarchive:
+    src: /tmp/demo.zip
+    dest: /opt/demo
+    remote_src: yes
+  tags: [files, zip]
+

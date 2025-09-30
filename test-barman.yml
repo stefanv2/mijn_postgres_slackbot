@@ -1,0 +1,13 @@
+---
+- name: Start PostgreSQL container
+  hosts: barman_lab
+  become: true
+  roles:
+    - postgres_container
+
+- name: Start Barman container
+  hosts: barman_lab
+  become: true
+  roles:
+    - barman_container
+

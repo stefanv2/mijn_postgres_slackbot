@@ -1,0 +1,10 @@
+#---#
+# roles/apps/nginx/handlers/main.yml
+---
+- name: Restart nginx
+  become: true
+  shell: |
+    nginx -t && nginx -s reload || \
+    (pkill nginx && nginx)
+  args:
+    executable: /bin/bash

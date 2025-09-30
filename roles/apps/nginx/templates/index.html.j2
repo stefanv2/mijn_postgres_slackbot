@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>🚀 Ansible Container: {{ inventory_hostname }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 {
+            font-size: 3em;
+            margin-bottom: 0.2em;
+        }
+        p {
+            font-size: 1.2em;
+        }
+        .footer {
+            margin-top: 3em;
+            font-size: 0.9em;
+            color: #777;
+        }
+        .badge {
+            display: inline-block;
+            background: #007acc;
+            color: #fff;
+            padding: 0.4em 1em;
+            border-radius: 5px;
+            margin-top: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎉 Welkom bij NGINX op {{ inventory_hostname }}</h1>
+    <p>Deze container is automatisch uitgerold met <strong>Ansible</strong>.</p>
+    <p><strong>Tijdstip:</strong> {{ ansible_date_time.iso8601 }}</p>
+
+    <div class="badge">🚀 Project: mijn_ansible1</div>
+
+    <div class="footer">
+        © {{ ansible_date_time.year }} Stefan's DevOps Demo
+    </div>
+</body>
+</html>
+
+
