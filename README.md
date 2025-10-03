@@ -1,4 +1,4 @@
-# Postgres Slackbot
+# Postcode Slackbot
 
 Slackbot voor adres- en postcode-zoekopdrachten vanuit een PostgreSQL database.
 
