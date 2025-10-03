@@ -2,9 +2,13 @@
 
 Slackbot voor adres- en postcode-zoekopdrachten vanuit een PostgreSQL database.
 
+---
+
 <p align="center">
-  <img src="images/postcode1234ab.png" alt="Postcode Slackbot" width="400"/>
+<img src="image/postcode1234ab.png" alt="BTOP" width="120" height="120"/>  
 </p>
+
+---
 
 ## Features
 - `/adres Straat Huisnummer Plaats` → zoekt fuzzy met pg_trgm
