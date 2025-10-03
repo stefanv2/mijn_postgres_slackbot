@@ -5,7 +5,7 @@ Slackbot voor adres- en postcode-zoekopdrachten vanuit een PostgreSQL database.
 ---
 
 <p align="center">
-<img src="image/postcode1234ab.png" alt="BTOP" width="120" height="120"/>  
+<img src="image/postcode1234ab.png" alt="BTOP" width="400" height="400"/>  
 </p>
 
 ---
