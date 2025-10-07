@@ -1,0 +1,32 @@
+services:
+  pg-container:
+    image: postgres:16
+    container_name: pg-container
+    environment:
+      - POSTGRES_USER=postman
+      - POSTGRES_PASSWORD=Tulpen123_
+      - POSTGRES_DB=postcode
+    ports:
+      - 4321:5432
+    volumes:
+      - /var/snap/docker/common/var-lib-docker/volumes/mijn_postgress_bm_pg_data/_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  slack-postcodebot:
+    build: .                                 # bouw image met je lokale code
+    container_name: slack-postcodebot
+    env_file:
+      - .env
+    volumes:
+      - /mnt/synology/Cal:/books             # mount Calibre-collectie
+      - .:/app                               # mount projectcode
+    ports:
+      - 3001:3003
+    depends_on:
+      - pg-container
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+

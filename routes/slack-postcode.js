@@ -33,7 +33,7 @@ async function queryPostgres(postcode, huisnr) {
 router.post('/postcode', async (req, res) => {
   const { text } = req.body;
   if (!text) {
-    return res.json({ text: '❌ Gebruik: `/postcode <postcode> <huisnummer>`' });
+    return res.json({ text: '? Gebruik: `/postcode <postcode> <huisnummer>`' });
   }
 
   const parts = text.trim().split(/\s+/);
@@ -53,8 +53,7 @@ router.post('/postcode', async (req, res) => {
 
   const adres = `${item.straatnaam} ${huisnrText}, ${item.plaatsnaam} (${item.postcode})`;
 
-  return res.json({ text: `📍 ${adres}` });
+  return res.json({ text: `?? ${adres}` });
 });
 
 module.exports = router;
-
