@@ -1,0 +1,217 @@
+// routes/slack-book.js
+
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const axios = require('axios');
+require('dotenv').config();
+
+const router = express.Router();
+
+// ✅ Config uit .env
+const CALIBRE_DB = process.env.CALIBRE_DB_PATH || '/books/metadata.db';
+const PUBLIC_URL_SLACK = process.env.PUBLIC_URL_SLACK || 'https://melissa-untheatrical-prewillingly.ngrok-free.dev';
+const PUBLIC_URL_WEB = process.env.PUBLIC_URL_WEB || 'http://localhost:3001';
+
+// 📌 Beschrijving inkorten
+function shorten(text, words = 40) {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').split(/\s+/).slice(0, words).join(' ') + '...';
+}
+
+/* --------------------------------------------------------------------- */
+/* ✅ 1)  API voor Webpagina → JSON data voor GET /slack/api/books       */
+/* --------------------------------------------------------------------- */
+
+router.get('/api/books', (req, res) => {
+  const query = (req.query.query || '').toLowerCase();
+  let sql = '';
+  let params = [];
+
+  if (query === 'new') {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      WHERE c.text IS NOT NULL AND c.text != ''
+      ORDER BY b.timestamp DESC
+      LIMIT 5;
+    `;
+  } else if (query) {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      LEFT JOIN books_tags_link bl ON b.id = bl.book
+      LEFT JOIN tags t ON bl.tag = t.id
+      WHERE c.text IS NOT NULL
+        AND (
+          LOWER(b.title) LIKE '%' || LOWER(?) || '%'
+          OR LOWER(a.name) LIKE '%' || LOWER(?) || '%'
+          OR LOWER(t.name) LIKE '%' || LOWER(?) || '%'
+        )
+      ORDER BY RANDOM()
+      LIMIT 5;
+    `;
+    params = [query, query, query];
+  } else {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      WHERE c.text IS NOT NULL AND c.text != ''
+      ORDER BY RANDOM()
+      LIMIT 5;
+    `;
+  }
+
+  const db = new sqlite3.Database(CALIBRE_DB);
+
+  db.all(sql, params, (err, rows) => {
+    db.close();
+    if (err) {
+      console.error('❌ Databasefout:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+
+    const result = rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      author: r.author,
+      description: shorten(r.description),
+      cover: `${PUBLIC_URL_WEB}/cover/${r.id}/og`
+    }));
+
+    res.json(result);
+  });
+});
+
+/* --------------------------------------------------------------------- */
+/* ✅ 2) Slack /book endpoint - werkt zoals altijd                       */
+/* --------------------------------------------------------------------- */
+
+router.post('/book', async (req, res) => {
+  console.log('📥 Slack request body:', req.body);
+  const { text, response_url } = req.body;
+
+  if (!response_url) {
+    return res.status(400).json({ error: 'Missing response_url in Slack request' });
+  }
+
+  // Directe ACK naar Slack
+  res.json({
+    response_type: 'ephemeral',
+    text: `📚 Zoeken naar *${text || 'random'}*...`
+  });
+
+  // SQL opbouwen
+  let sql = '';
+  let params = [];
+  const q = (text || '').trim().toLowerCase();
+
+  if (q === 'new') {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      WHERE c.text IS NOT NULL
+      ORDER BY b.timestamp DESC
+      LIMIT 3;
+    `;
+  } else if (q) {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      LEFT JOIN books_tags_link bl ON b.id = bl.book
+      LEFT JOIN tags t ON bl.tag = t.id
+      WHERE c.text IS NOT NULL
+        AND (
+          LOWER(b.title) LIKE '%' || LOWER(?) || '%'
+          OR LOWER(a.name) LIKE '%' || LOWER(?) || '%'
+          OR LOWER(t.name) LIKE '%' || LOWER(?) || '%'
+        )
+      ORDER BY RANDOM()
+      LIMIT 3;
+    `;
+    params = [q, q, q];
+  } else {
+    sql = `
+      SELECT b.id, b.title, a.name AS author, c.text AS description
+      FROM books b
+      LEFT JOIN authors a ON b.author_sort = a.sort
+      LEFT JOIN comments c ON c.book = b.id
+      WHERE c.text IS NOT NULL
+      ORDER BY RANDOM()
+      LIMIT 3;
+    `;
+  }
+
+  const db = new sqlite3.Database(CALIBRE_DB);
+
+  db.all(sql, params, async (err, rows) => {
+    db.close();
+
+    if (!rows || rows.length === 0 || err) {
+      console.error('⚠️ Geen boeken gevonden of fout:', err ? err.message : 'empty');
+      await axios.post(response_url, {
+        response_type: 'ephemeral',
+        text: '❌ Geen boeken gevonden.'
+      });
+      return;
+    }
+
+    console.log(`✅ ${rows.length} boek(en) gevonden, versturen naar Slack...`);
+
+    const blocks = [];
+
+    for (const row of rows) {
+      const title = row.title || 'Onbekende titel';
+      const author = row.author || 'Onbekende auteur';
+      const desc = shorten(row.description);
+      const coverUrl = `${PUBLIC_URL_SLACK}/cover/${row.id}/og`;
+      const linkUrl = `${PUBLIC_URL_SLACK}/book/${row.id}`;
+
+      blocks.push(
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `📚 *${title}*\n_${author}_\n\n${desc}`
+          }
+        },
+        {
+          type: 'image',
+          image_url: coverUrl,
+          alt_text: title
+        },
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `🔗 <${linkUrl}|Bekijk in Calibre-Web>`
+            }
+          ]
+        },
+        { type: 'divider' }
+      );
+    }
+
+    try {
+      await axios.post(response_url, {
+        response_type: 'in_channel',
+        blocks
+      });
+    } catch (error) {
+      console.error('❌ Fout bij verzenden naar Slack:', error.message);
+    }
+  });
+});
+
+module.exports = router;
+

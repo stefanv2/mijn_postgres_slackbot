@@ -1,0 +1,117 @@
+const express = require('express');
+const { Client } = require('pg');
+const axios = require('axios');
+require('dotenv').config();
+
+const router = express.Router();
+
+// ---- Databasefunctie ----
+async function queryPostgres(postcode, huisnr) {
+  const client = new Client({
+    host: process.env.PGHOST,
+    port: process.env.PGPORT,
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    database: process.env.PGDATABASE
+  });
+
+  await client.connect();
+
+  const sql = `
+    SELECT straatnaam, plaatsnaam,
+           wijkcode || lettercombinatie AS postcode,
+           huisnr, breedtegraad, lengtegraad
+    FROM ktb_pcdata
+    WHERE (wijkcode || lettercombinatie) = $1
+      AND huisnr = $2
+    LIMIT 1;
+  `;
+
+  const result = await client.query(sql, [postcode.toUpperCase(), huisnr]);
+  await client.end();
+  return result.rows;
+}
+
+// ---- Slack route ----
+router.post('/postcode', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.json({
+        response_type: "ephemeral",
+        text: "❓ Gebruik: `/postcode 2014SL 203`"
+      });
+    }
+
+    const parts = text.trim().split(/\s+/);
+    const postcode = parts[0];
+    const huisnr = parts[1] ? parseInt(parts[1], 10) : null;
+
+    if (!postcode || !huisnr) {
+      return res.json({
+        response_type: "ephemeral",
+        text: "⚠️ Voorbeeld: `/postcode 2014SL 203`"
+      });
+    }
+
+    const rows = await queryPostgres(postcode, huisnr);
+    if (rows.length === 0) {
+      return res.json({
+        response_type: "ephemeral",
+        text: `❌ Geen adres gevonden voor ${text}`
+      });
+    }
+
+    const r = rows[0];
+    const adres = `${r.straatnaam} ${r.huisnr}, ${r.plaatsnaam} (${r.postcode})`;
+
+    // Linkbare kaart (altijd werkend)
+    const mapsUrl = r.breedtegraad && r.lengtegraad
+      ? `https://www.google.com/maps/search/?api=1&query=${r.breedtegraad},${r.lengtegraad}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(adres)}`;
+
+    // Statische kaart afbeelding (alleen als API key én coördinaten)
+    let staticMapUrl = null;
+    if (r.breedtegraad && r.lengtegraad && process.env.GOOGLE_MAPS_API_KEY) {
+      staticMapUrl =
+        `https://maps.googleapis.com/maps/api/staticmap` +
+        `?center=${r.breedtegraad},${r.lengtegraad}` +
+        `&zoom=17&size=600x300&markers=${r.breedtegraad},${r.lengtegraad}` +
+        `&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+    }
+
+    // Slack bericht bouwen
+    const blocks = [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `✅ *${adres}*\n🌍 <${mapsUrl}|Open in Google Maps>`
+        }
+      }
+    ];
+
+    if (staticMapUrl) {
+      blocks.push({
+        type: "image",
+        image_url: staticMapUrl,
+        alt_text: `Kaart van ${adres}`
+      });
+    }
+
+    return res.json({
+      response_type: "in_channel",
+      blocks
+    });
+
+  } catch (err) {
+    console.error("❌ Fout in /postcode:", err);
+    return res.status(500).json({
+      response_type: "ephemeral",
+      text: "❌ Er ging iets mis met de server."
+    });
+  }
+});
+
+module.exports = router;
+

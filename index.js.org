@@ -1,0 +1,25 @@
+
+const express = require('express');
+const bodyParser = require('body-parser');
+require('dotenv').config();
+
+// Routers
+//const slackAdresRoutes = require('./routes/slack-adres');
+const slackAdresPgRoutes = require('./routes/slack-adrespg');
+const slackPostcodeRoutes = require('./routes/slack-postcode');
+const slackBookRoutes = require('./routes/slack-book');
+
+const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+// Routes koppelen
+//app.use('/slack', slackAdresRoutes);
+app.use('/slack', slackPostcodeRoutes);
+app.use('/slack', slackBookRoutes);
+app.use('/slack', slackAdresPgRoutes);
+
+const PORT = process.env.PORT || 3003;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`?? Postgres Slack server gestart op poort ${PORT} en luistert op alle interfaces`);
+});

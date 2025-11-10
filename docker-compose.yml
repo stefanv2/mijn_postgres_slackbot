@@ -20,6 +20,7 @@ services:
     volumes:
       - /mnt/synology/Cal:/books             # mount Calibre-collectie
       - .:/app                               # mount projectcode
+      - /home/stefan/kavita-config:/kavita   # ✅ Kavita database beschikbaar maken
     ports:
       - 3001:3003
     depends_on:
