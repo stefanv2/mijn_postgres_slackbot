@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # Je bestaande database container
   pg-container:
     image: postgres:16
     container_name: pg-container
@@ -7,27 +10,43 @@ services:
       - POSTGRES_PASSWORD=Tulpen123_
       - POSTGRES_DB=postcode
     ports:
+      # Let op: intern luistert Postgres altijd op 5432.
+      # De 4321 is alleen voor toegang van buitenaf.
       - 4321:5432
     volumes:
       - /var/snap/docker/common/var-lib-docker/volumes/mijn_postgress_bm_pg_data/_data:/var/lib/postgresql/data
+      - ./import:/import
+      - ./seed:/docker-entrypoint-initdb.d
     restart: unless-stopped
 
+  # Je bestaande oude bot
   slack-postcodebot:
-    build: .                                 # bouw image met je lokale code
+    build: .
     container_name: slack-postcodebot
     env_file:
       - .env
     volumes:
-      - /mnt/synology/Cal:/books             # mount Calibre-collectie
-      - .:/app                               # mount projectcode
-      - /home/stefan/kavita-config:/kavita   # ✅ Kavita database beschikbaar maken
+      - /mnt/synology/Cal:/books
+      - .:/app
+      - /home/stefan/kavita-config:/kavita
     ports:
       - 3001:3003
     depends_on:
       - pg-container
     restart: unless-stopped
 
+  # --- NIEUW: De service voor je nieuwe LLM-adresbot (index1.js) ---
+  slack-adresbot:
+    build: .                          # Gebruikt de Dockerfile met CMD ["node", "index1.js"]
+    container_name: slack-adresbot    # Duidelijke naam
+    env_file:
+      - .env                          # Zorg dat hier DB_HOST=pg-container en DB_PORT=5432 in staat!
+    ports:
+      - "3003:3003"                   # Luistert op poort 3003
+    depends_on:
+      - pg-container                  # Start pas als de DB klaar is
+    restart: unless-stopped
+
 networks:
   default:
     driver: bridge
-

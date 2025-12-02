@@ -17,5 +17,5 @@ COPY . .
 EXPOSE 3003
 
 # Start de app
-CMD ["node", "index.js"]
+CMD ["node", "index1.js"]
 

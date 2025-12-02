@@ -27,18 +27,32 @@ function runBooksQuery(mode, searchTerm, limit) {
   return new Promise((resolve, reject) => {
     let sql = '';
     let params = [];
+    
+      if (mode === 'new') {
+  sql = `
+     SELECT 
+      b.id,
+      b.title,
+      a.name AS author,
+      c.text AS description
+    FROM books b
+    LEFT JOIN (
+      SELECT sort, MIN(name) AS name
+      FROM authors
+      GROUP BY sort
+    ) a ON b.author_sort = a.sort
+    LEFT JOIN (
+      SELECT book, MAX(text) AS text
+      FROM comments
+      WHERE text IS NOT NULL AND text != ''
+      GROUP BY book
+    ) c ON c.book = b.id
+    WHERE c.text IS NOT NULL
+    ORDER BY b.timestamp DESC
+    LIMIT ?; 
+  `; 
+  params = [limit];  
 
-    if (mode === 'new') {
-      sql = `
-        SELECT b.id, b.title, a.name AS author, c.text AS description
-        FROM books b
-        LEFT JOIN authors a ON b.author_sort = a.sort
-        LEFT JOIN comments c ON c.book = b.id
-        WHERE c.text IS NOT NULL AND c.text != ''
-        ORDER BY b.timestamp DESC
-        LIMIT ?;
-      `;
-      params = [limit];
     } else if (mode === 'search') {
       sql = `
         SELECT DISTINCT b.id, b.title, a.name AS author, c.text AS description
@@ -184,7 +198,7 @@ router.post('/book', async (req, res) => {
     for (const row of rows) {
       const title = row.title || 'Onbekende titel';
       const author = row.author || 'Onbekende auteur';
-      const desc = shorten(row.description);
+      const desc = shorten(row.description || 'Geen beschrijving beschikbaar.');
       const coverUrl = `${PUBLIC_URL_SLACK}/cover/${row.id}/og`;
       const linkUrl  = `${PUBLIC_URL_SLACK}/book/${row.id}`;
 
