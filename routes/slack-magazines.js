@@ -18,12 +18,14 @@ router.get('/', async (req, res) => {
     const parsed = await xml2js.parseStringPromise(xml, { explicitArray: false });
 
     // 3. OPDS entries
-    const entries = parsed.feed.entry || [];
+    const feedEntries = parsed.feed.entry || [];
+    const entries = Array.isArray(feedEntries) ? feedEntries : [feedEntries];
 
     // 4. Map tijdschriften naar simpele JSON
     const mags = entries.map(entry => {
       // ID uit "/opds/cover/<ID>"
-      const coverLink = entry.link.find(l => l['$'].rel === "http://opds-spec.org/image");
+      const entryLinks = Array.isArray(entry.link) ? entry.link : [entry.link];
+      const coverLink = entryLinks.find(l => l?.['$']?.rel === "http://opds-spec.org/image");
       const href = coverLink?.['$']?.href || "";
       const id = href.replace("/opds/cover/", "");
 
