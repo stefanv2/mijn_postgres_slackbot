@@ -9,7 +9,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Functies voor de fuzzy search
-const { loadFuse, getFuse } = require("./fuse-loader"); 
+const { loadFuse, getFuse } = require("./fuse-loader");
 
 // Importeer alle routes
 const slackAdresPgRoutes = require('./routes/slack-adrespg');
@@ -18,13 +18,14 @@ const slackBookRoutes = require('./routes/slack-book');
 const coverRoutes = require('./routes/cover');
 const comicsSqlRoutes = require('./routes/comics_sql');
 const slackAdresLlmRoutes = require('./routes/slack-adres-llm');
+const magazinesRoute = require('./routes/slack-magazines');
 
 // =======================================================
 // 2. GLOBALE CONFIGURATIE & FUSE LADEN
 // =======================================================
 
 // 🔥 Fuse index in het geheugen laden (MOET vóór de test komen)
-loadFuse(); 
+loadFuse();
 
 // =======================================================
 // 3. LOKALE FUZZY TEST (NIEUWE STRAAT/PLAATS PIPELINE)
@@ -77,7 +78,7 @@ testFuzzySearch("lutulastraan 20 haarlem");
 const app = express();
 
 // ✅ Sta verzoeken toe vanuit elke browser / frontend
-app.use(cors()); 
+app.use(cors());
 app.use('/kavita_covers', express.static('/kavita'));
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -90,6 +91,7 @@ app.use('/slack', slackAdresPgRoutes);
 app.use('/slack', slackAdresLlmRoutes);
 app.use('/', coverRoutes);
 app.use('/slack/api', comicsSqlRoutes);
+app.use('/slack/api/magazines', magazinesRoute);
 
 // Server starten
 const PORT = process.env.PORT || 3003;
